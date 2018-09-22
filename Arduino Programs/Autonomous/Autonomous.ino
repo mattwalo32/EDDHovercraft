@@ -1,7 +1,7 @@
 int thrustMotorPinLeft = 3;
-int thrustMotorPinRight = 4;
-int liftMotorPinLeft = 5;
-int liftMotorPinRight = 6;
+int thrustMotorPinRight = 5;
+int liftMotorPinLeft = 6;
+int liftMotorPinRight = 9;
 
 // The value of of lift offset will provide a factor of more power
 // to one motor over another. Positive favors right, negative left.
@@ -21,6 +21,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   rampLiftMotors(150);
   driveStraight(5000, 100);
+  turn(0.5, 200, 2000);
 }
 
 /**
@@ -54,19 +55,39 @@ void rampLiftMotors(int motorSpeed){
   }
 }
 
+/**
+ * Turns the hovercraft.
+ * @param sharpness: A value between -1 and 1 determining the sharpness of the turn. -1 is left, 1 is right
+ * @param motorSpeed: The max speed at which the motor shall run
+ * @param duration: The duration of the turn in milliseconds
+ */
+void turn(double sharpness, int motorSpeed, int duration){
+  // Calculate motor speeds based on turn sharpness and motorSpeed
+  int leftMotorSpeed = sharpness >= 0 ? motorSpeed : (1 + sharpness)  * motorSpeed;
+  int rightMotorSpeed = sharpness <= 0 ? motorSpeed : (1 - sharpness) * motorSpeed;
+
+  // Set motor values
+  analogWrite(thrustMotorPinLeft, getAdjustedMotorSpeed(thrustMotorPinLeft, leftMotorSpeed));
+  analogWrite(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, rightMotorSpeed));
+
+  // Wait for this step to be over
+  delay(duration);
+}
+
+/**
+ * Returns the motor speed after adjusting it by the appropriate factor to balance it.
+ * @param pinNum The pin number of the motor to adjust
+ * @param motorSpeed The unadjusted motor speed
+ */
 int getAdjustedMotorSpeed(int pinNum, int motorSpeed){
-  switch(pinNum){
-    case thrustMotorPinLeft:
+    if(pinNum == thrustMotorPinLeft)
       return THRUST_OFFSET < 0 ? motorSpeed * THRUST_OFFSET * -1 : motorSpeed;
-      break;
-      case thrustMotorPinRight:
-    return THRUST_OFFSET > 0 ? motorSpeed * THRUST_OFFSET : motorSpeed;
-      break;
-    case liftMotorPinLeft:
+    else if(pinNum == thrustMotorPinRight)
+      return THRUST_OFFSET > 0 ? motorSpeed * THRUST_OFFSET : motorSpeed;
+    else if(pinNum == liftMotorPinLeft)
       return LIFT_OFFSET < 0 ? motorSpeed * THRUST_OFFSET * -1 : motorSpeed;
-      break;
-    case liftMotorPinRight:
+    else if(pinNum == liftMotorPinRight)
       return LIFT_OFFSET > 0 ? motorSpeed * THRUST_OFFSET : motorSpeed;
-      break;
-  }
+    else
+      return motorSpeed;
 }
