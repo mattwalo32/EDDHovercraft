@@ -3,6 +3,15 @@ int thrustMotorPinRight = 5;
 int liftMotorPinLeft = 6;
 int liftMotorPinRight = 9;
 
+int PWM_DELAY_TL = 255;
+int PWM_DELAY_TR = 255;
+int PWM_DELAY_LL = 255;
+int PWM_DELAY_LR = 255;
+
+int CYCLE_TIME = 10;
+
+static struct pt thread;
+
 // The value of of lift offset will provide a factor of more power
 // to one motor over another. Positive favors right, negative left.
 double LIFT_OFFSET = 0.0;
@@ -15,6 +24,8 @@ void setup() {
   pinMode(thrustMotorPinRight, OUTPUT);
   pinMode(liftMotorPinLeft, OUTPUT);
   pinMode(liftMotorPinRight, OUTPUT);
+
+  PT_INIT(&thread);
 }
 
 void loop() {
@@ -22,6 +33,8 @@ void loop() {
   rampLiftMotors(150);
   driveStraight(5000, 100);
   turn(0.5, 200, 2000);
+
+  motorThread(&thread, CYCLE_TIME);
 }
 
 /**
@@ -31,8 +44,8 @@ void loop() {
  */
 void driveStraight(int duration, int speedValue){
   // Set both motors to the same speed
-  analogWrite(thrustMotorPinLeft, getAdjustedMotorSpeed(thrustMotorPinLeft, speedValue));
-  analogWrite(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, speedValue));
+  pwm(thrustMotorPinLeft, getAdjustedMotorSpeed(thrustMotorPinLeft, speedValue));
+  pwm(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, speedValue));
 
   // While duration has not elasped
   delay(duration);
@@ -48,8 +61,8 @@ void rampLiftMotors(int motorSpeed){
 
   //While it is still accelerating
   while(currentSpeed < motorSpeed){
-    analogWrite(liftMotorPinLeft, getAdjustedMotorSpeed(liftMotorPinLeft, currentSpeed));
-    analogWrite(liftMotorPinRight, getAdjustedMotorSpeed(liftMotorPinRight, currentSpeed));
+    pwm(liftMotorPinLeft, getAdjustedMotorSpeed(liftMotorPinLeft, currentSpeed));
+    pwm(liftMotorPinRight, getAdjustedMotorSpeed(liftMotorPinRight, currentSpeed));
     currentSpeed += 1;
     delay(10);
   }
@@ -67,8 +80,8 @@ void turn(double sharpness, int motorSpeed, int duration){
   int rightMotorSpeed = sharpness <= 0 ? motorSpeed : (1 - sharpness) * motorSpeed;
 
   // Set motor values
-  analogWrite(thrustMotorPinLeft, getAdjustedMotorSpeed(thrustMotorPinLeft, leftMotorSpeed));
-  analogWrite(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, rightMotorSpeed));
+  pwm(thrustMotorPinLeft, getAdjustedMotorSpeed(thrustMotorPinLeft, leftMotorSpeed));
+  pwm(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, rightMotorSpeed));
 
   // Wait for this step to be over
   delay(duration);
@@ -90,4 +103,51 @@ int getAdjustedMotorSpeed(int pinNum, int motorSpeed){
       return LIFT_OFFSET > 0 ? motorSpeed * THRUST_OFFSET : motorSpeed;
     else
       return motorSpeed;
+}
+
+void pwm(int pinNum, int speedValue){
+  speedValue = 260 - speedValue;
+  if(pinNum == thrustMotorPinLeft)
+     PWM_DELAY_TL = speedValue;
+  else if(pinNum == thrustMotorPinRight)
+    PWM_DELAY_TR = speedValue;
+  else if(pinNum == liftMotorPinLeft)
+    PWM_DELAY_LL = speedValue;
+  else if(pinNum == liftMotorPinRight)
+    PWM_DELAY_LR = speedValue;
+}
+
+static int motorThread(Struct pt *pt, int interval){
+  static unsigned long timestamp = 0;
+  PT_BEGIN(pt);
+  int cycle = 0;
+
+  while(1){
+    PT_WAIT_UNTIL(pt, millis() - timestamp > interval);
+    timestamp = millis();
+    cycle++;
+    if(cycle >= PWM_DELAY_TL)
+      digitalWrite(thrustMotorPinLeft, LOW);
+    else
+      digitalWrite(thrustMotorPinLeft, HIGH);
+    
+    if(cycle >= PWM_DELAY_TR)
+      digitalWrite(thrustMotorPinRight, LOW);
+    else
+      digitalWrite(thrustMotorPinRight, HIGH);
+      
+    if(cycle >= PWM_DELAY_LL)
+      digitalWrite(liftMotorPinLeft, LOW);
+    else
+      digitalWrite(liftMotorPinLeft, HIGH);
+      
+    if(cycle >= PWM_DELAY_LR)
+      digitalWrite(liftMotorPinRight, LOW);
+    else
+      digitalWrite(liftMotorPinRight, HIGH);
+      
+    cycle = cycle >= 255 ? 0 : cycle;
+  }
+
+  PT_END(pt);
 }
