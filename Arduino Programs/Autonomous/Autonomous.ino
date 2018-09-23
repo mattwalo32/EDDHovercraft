@@ -1,6 +1,4 @@
-#include <StaticThreadController.h>
-#include <Thread.h>
-#include <ThreadController.h>
+#include <TimedAction.h>
 
 int thrustMotorPinLeft = 3;
 int thrustMotorPinRight = 5;
@@ -15,12 +13,12 @@ int PWM_DELAY_LR = 255;
 int CYCLE_TIME = 10;
 int NUM_CYCLES = 0;
 
-Thread motorThread = Thread();
-
 // The value of of lift offset will provide a factor of more power
 // to one motor over another. Positive favors right, negative left.
 double LIFT_OFFSET = 0.0;
 double THRUST_OFFSET = 0.0;
+
+TimedAction timedAction = TimedAction(CYCLE_TIME, pulseMotors);
 
 // First method called for any initialization
 void setup() {
@@ -29,12 +27,6 @@ void setup() {
   pinMode(thrustMotorPinRight, OUTPUT);
   pinMode(liftMotorPinLeft, OUTPUT);
   pinMode(liftMotorPinRight, OUTPUT);
-
-  motorThread.enabled = true;
-  motorThread.setInterval(CYCLE_TIME);
-  motorThread.onRun(pulseMotors);
-
-  Serial.begin(9600);
 }
 
 void loop() {
@@ -55,7 +47,7 @@ void driveStraight(int duration, int speedValue){
   pwm(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, speedValue));
 
   // While duration has not elasped
-  delay(duration);
+  wait(duration);
 }
 
 /**
@@ -71,7 +63,7 @@ void rampLiftMotors(int motorSpeed){
     pwm(liftMotorPinLeft, getAdjustedMotorSpeed(liftMotorPinLeft, currentSpeed));
     pwm(liftMotorPinRight, getAdjustedMotorSpeed(liftMotorPinRight, currentSpeed));
     currentSpeed += 1;
-    delay(10);
+    wait(10);
   }
 }
 
@@ -91,7 +83,7 @@ void turn(double sharpness, int motorSpeed, int duration){
   pwm(thrustMotorPinRight, getAdjustedMotorSpeed(thrustMotorPinRight, rightMotorSpeed));
 
   // Wait for this step to be over
-  delay(duration);
+  wait(duration);
 }
 
 /**
@@ -110,6 +102,14 @@ int getAdjustedMotorSpeed(int pinNum, int motorSpeed){
       return LIFT_OFFSET > 0 ? motorSpeed * THRUST_OFFSET : motorSpeed;
     else
       return motorSpeed;
+}
+
+void wait(int duration){
+  long startTime = millis();
+  while(millis() - startTime < duration){
+    timedAction.check();
+    delay(1);
+  }
 }
 
 void pwm(int pinNum, int speedValue){
