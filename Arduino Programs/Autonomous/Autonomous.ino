@@ -1,3 +1,7 @@
+#include <StaticThreadController.h>
+#include <Thread.h>
+#include <ThreadController.h>
+
 int thrustMotorPinLeft = 3;
 int thrustMotorPinRight = 5;
 int liftMotorPinLeft = 6;
@@ -9,8 +13,9 @@ int PWM_DELAY_LL = 255;
 int PWM_DELAY_LR = 255;
 
 int CYCLE_TIME = 10;
+int NUM_CYCLES = 0;
 
-static struct pt thread;
+Thread motorThread = Thread();
 
 // The value of of lift offset will provide a factor of more power
 // to one motor over another. Positive favors right, negative left.
@@ -25,7 +30,11 @@ void setup() {
   pinMode(liftMotorPinLeft, OUTPUT);
   pinMode(liftMotorPinRight, OUTPUT);
 
-  PT_INIT(&thread);
+  motorThread.enabled = true;
+  motorThread.setInterval(CYCLE_TIME);
+  motorThread.onRun(pulseMotors);
+
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -33,8 +42,6 @@ void loop() {
   rampLiftMotors(150);
   driveStraight(5000, 100);
   turn(0.5, 200, 2000);
-
-  motorThread(&thread, CYCLE_TIME);
 }
 
 /**
@@ -106,7 +113,7 @@ int getAdjustedMotorSpeed(int pinNum, int motorSpeed){
 }
 
 void pwm(int pinNum, int speedValue){
-  speedValue = 260 - speedValue;
+  speedValue = 255 - speedValue;
   if(pinNum == thrustMotorPinLeft)
      PWM_DELAY_TL = speedValue;
   else if(pinNum == thrustMotorPinRight)
@@ -117,37 +124,28 @@ void pwm(int pinNum, int speedValue){
     PWM_DELAY_LR = speedValue;
 }
 
-static int motorThread(Struct pt *pt, int interval){
-  static unsigned long timestamp = 0;
-  PT_BEGIN(pt);
-  int cycle = 0;
-
-  while(1){
-    PT_WAIT_UNTIL(pt, millis() - timestamp > interval);
-    timestamp = millis();
-    cycle++;
-    if(cycle >= PWM_DELAY_TL)
-      digitalWrite(thrustMotorPinLeft, LOW);
-    else
-      digitalWrite(thrustMotorPinLeft, HIGH);
+void pulseMotors(){
+  NUM_CYCLES++;
+  if(NUM_CYCLES >= PWM_DELAY_TL)
+    digitalWrite(thrustMotorPinLeft, LOW);
+  else
+    digitalWrite(thrustMotorPinLeft, HIGH);
+  
+  if(NUM_CYCLES >= PWM_DELAY_TR)
+    digitalWrite(thrustMotorPinRight, LOW);
+  else
+    digitalWrite(thrustMotorPinRight, HIGH);
     
-    if(cycle >= PWM_DELAY_TR)
-      digitalWrite(thrustMotorPinRight, LOW);
-    else
-      digitalWrite(thrustMotorPinRight, HIGH);
-      
-    if(cycle >= PWM_DELAY_LL)
-      digitalWrite(liftMotorPinLeft, LOW);
-    else
-      digitalWrite(liftMotorPinLeft, HIGH);
-      
-    if(cycle >= PWM_DELAY_LR)
-      digitalWrite(liftMotorPinRight, LOW);
-    else
-      digitalWrite(liftMotorPinRight, HIGH);
-      
-    cycle = cycle >= 255 ? 0 : cycle;
-  }
+  if(NUM_CYCLES >= PWM_DELAY_LL)
+    digitalWrite(liftMotorPinLeft, LOW);
+  else
+    digitalWrite(liftMotorPinLeft, HIGH);
+    
+  if(NUM_CYCLES >= PWM_DELAY_LR)
+    digitalWrite(liftMotorPinRight, LOW);
+  else
+    digitalWrite(liftMotorPinRight, HIGH);
 
-  PT_END(pt);
+  Serial.print("TEST");
+  NUM_CYCLES = NUM_CYCLES >= 255 ? 0 : NUM_CYCLES;
 }
