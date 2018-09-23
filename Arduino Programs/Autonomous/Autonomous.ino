@@ -18,6 +18,10 @@ int NUM_CYCLES = 0;
 double LIFT_OFFSET = 0.0;
 double THRUST_OFFSET = 0.0;
 
+// Declare method so timedAction may be declared
+void pulseMotors();
+
+// Timed action to check the PWM values of the motors
 TimedAction timedAction = TimedAction(CYCLE_TIME, pulseMotors);
 
 // First method called for any initialization
