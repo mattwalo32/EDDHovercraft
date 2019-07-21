@@ -1,5 +1,2 @@
-# La-A LLC
-## Hovercraft
-
-In the words of Stephanie Slowik
-> Every stripper should be named.
+# La-A LLC Hovercraft
+Arduino code for Engineering Design and Development hovercraft project
